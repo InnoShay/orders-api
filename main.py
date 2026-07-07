@@ -63,6 +63,10 @@ def check_rate_limit(client_id: str) -> float | None:
 # ---------------------------------------------------------------------------
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
+    # Never rate-limit CORS preflight
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     client_id = request.headers.get("x-client-id")
 
     if client_id:
@@ -71,7 +75,13 @@ async def rate_limit_middleware(request: Request, call_next):
             return JSONResponse(
                 status_code=429,
                 content={"error": "rate limited"},
-                headers={"Retry-After": str(int(retry_after))},
+                headers={
+                    "Retry-After": str(int(retry_after)),
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Methods": "*",
+                    "Access-Control-Expose-Headers": "Retry-After",
+                },
             )
 
     return await call_next(request)
