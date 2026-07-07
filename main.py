@@ -106,16 +106,23 @@ async def create_order(
 # GET /orders  — cursor-based pagination over the fixed catalog
 # ---------------------------------------------------------------------------
 @app.get("/orders")
-async def list_orders(
-    limit: int = Query(default=10),
-    cursor: str = Query(default=None),
-):
+async def list_orders(request: Request):
+    # Parse query params manually to avoid 422 on missing/empty values
+    params = request.query_params
+    try:
+        limit = int(params.get("limit", 10))
+    except (ValueError, TypeError):
+        limit = 10
+    limit = max(1, limit)
+
+    cursor_raw = params.get("cursor", None)
+
     # Cursor is the *next* order ID to return (1-indexed), base-10 string
     # Default start = 1
-    if cursor:
+    if cursor_raw:
         try:
-            start_id = int(cursor)
-        except ValueError:
+            start_id = int(cursor_raw)
+        except (ValueError, TypeError):
             start_id = 1
     else:
         start_id = 1
@@ -133,3 +140,4 @@ async def list_orders(
     next_cursor = str(next_id) if next_id <= TOTAL_ORDERS else None
 
     return {"items": page, "next_cursor": next_cursor}
+
